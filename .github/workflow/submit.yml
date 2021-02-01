@@ -1,0 +1,29 @@
+name: submit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 15.x
+      - run: npm i
+      - run: npm run build --if-present
+      - name: submit
+        id: submit
+        run: |
+          cd src
+          node index.js > log 2>&1
+          log=$(cat log)
+          log="${log//'%'/'%25'}"
+          log="${log//$'\n'/'%0A'}"
+          log="${log//$'\r'/'%0D'}"
+          echo "::set-output name=log::$log"

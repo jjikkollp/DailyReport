@@ -7,6 +7,15 @@ import { generateForm, get, postForm, postHeaders, referrer } from './utils/requ
 
 import { password, username } from '../config.json';
 
+import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+import localizedFormat from 'dayjs/plugin/localizedFormat'
+import 'dayjs/locale/zh-cn'
+dayjs.extend(utc)
+dayjs.extend(timezone);
+dayjs.extend(localizedFormat)
+
 const random = () => Math.random() * 999;
 const time = () => ~~(Date.now() / 1000);
 
@@ -149,13 +158,15 @@ const diffField2 = (stepId: number, data: Record<string, string>) => JSON.string
     "groupYQRBList": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 });
 
-(async () => {
+
+const submit = async () => {
     const csrfToken = await login(username, password);
     let stepId = await start(csrfToken);
     const url = referrer(stepId);
     for (const differ of [diffField0, diffField1, diffField2]) {
         const { data, fields, actionId } = await render(stepId, csrfToken);
         if (data.fieldRBDTTBQK === '已') {
+            console.log("今日已填报")
             return;
         }
         const boundFields = Object.entries<Record<string, string>>(fields).filter(([, v]) => v.bound).map(([k]) => k).toString();
@@ -163,4 +174,26 @@ const diffField2 = (stepId: number, data: Record<string, string>) => JSON.string
         stepId = await doAction(stepId, actionId, formData, boundFields, csrfToken);
     }
     console.log(url);
-})();
+};
+
+let retry = 0
+
+let try_until_success = async () => {
+    try {
+        await submit()
+    } catch (e) {
+        console.warn("try", retry, "failed")
+        console.warn(e)
+        retry++
+        if (retry < 5) {
+            try_until_success()
+        } else {
+            console.error("too many retries")
+        }
+    }
+}
+const today = dayjs().tz("Asia/Shanghai").locale('zh-cn').format('LLLL')
+
+console.info("============", today, "============")
+
+try_until_success()
